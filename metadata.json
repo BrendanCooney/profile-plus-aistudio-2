@@ -1,0 +1,5 @@
+{
+  "name": "ProfilePlus - AI-Powered CV Profiles",
+  "description": "A job-marketing tool that allows applicants to create an online CV profile page using AI and share a link with recruiters. Recruiters can view skills and contact candidates, whose names are revealed after contact.",
+  "requestFramePermissions": []
+}

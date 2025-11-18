@@ -52,6 +52,10 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ profile, i
   };
   
   const handleDownloadCv = () => {
+    if (isPreview) {
+        alert("The CV will be available for download on the public profile after you save your changes.");
+        return;
+    }
     if (profile.cvFile) {
         const url = URL.createObjectURL(profile.cvFile);
         const a = document.createElement('a');
@@ -67,6 +71,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ profile, i
   };
 
   const displayName = nameRevealed ? profile.name : `Candidate #${profile.id.substring(0, 4)}`;
+  const cvIsAvailable = isPreview ? profile.hasCvFile : !!profile.cvFile;
 
   return (
     <div className="flex-grow bg-slate-100 py-8 md:py-12">
@@ -116,13 +121,14 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ profile, i
                 <p className="text-slate-600 mb-6">Get the candidate's full resume for your records.</p>
                 <button
                     onClick={handleDownloadCv}
-                    disabled={!profile.cvFile}
+                    disabled={!cvIsAvailable}
                     className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:bg-slate-400 disabled:cursor-not-allowed"
                 >
                     <DocumentArrowDownIcon className="w-5 h-5 mr-2" />
                     Download PDF
                 </button>
-                 {!profile.cvFile && <p className="text-xs text-slate-500 mt-2">CV not available for download.</p>}
+                 {!cvIsAvailable && <p className="text-xs text-slate-500 mt-2">CV not available for download.</p>}
+                 {isPreview && cvIsAvailable && <p className="text-xs text-slate-500 mt-2">Download available on public profile after saving.</p>}
             </div>
           </div>
 

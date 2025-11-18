@@ -6,6 +6,28 @@ import { analyzeCvText } from '../services/geminiService';
 import { Spinner } from '../components/Spinner';
 import { SparklesIcon } from '../components/icons';
 
+// Mock function to simulate PDF text extraction.
+// In a real application, you would use a library like 'pdfjs-dist'.
+const extractTextFromPdf = async (file: File): Promise<string> => {
+  console.log(`Simulating text extraction for ${file.name}`);
+  return new Promise(resolve => setTimeout(() => resolve(`
+    --- MOCK PDF CONTENT ---
+    Johnathan Doe
+    Senior Software Engineer | San Francisco, CA
+    
+    Professional Summary:
+    A highly skilled and motivated software engineer with 10+ years of experience in designing, developing, and deploying scalable web applications. Proven ability to lead projects and mentor junior developers.
+    
+    Skills:
+    - JavaScript, TypeScript, Python
+    - React, Angular, Vue.js
+    - Node.js, Express
+    - AWS, Docker, Kubernetes
+    - SQL, MongoDB
+    --- END MOCK PDF CONTENT ---
+  `), 1000));
+};
+
 interface DashboardPageProps {
   user: User | null;
   profile: CandidateProfile | null;
@@ -32,8 +54,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
   }, [profile]);
 
   const handleGenerateFromCv = async () => {
-    if (!cvText) {
-      setError('Please paste your CV text first.');
+    let textToAnalyze = cvText;
+    const uploadedCvFile = formData.cvFile;
+
+    if (!textToAnalyze && !uploadedCvFile) {
+      setError('Please paste your CV text or upload a PDF file.');
       setGenerationStatus('error');
       return;
     }
@@ -41,7 +66,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
     setError('');
     setSuccess('');
     try {
-      const analysis = await analyzeCvText(cvText);
+      if (uploadedCvFile && !textToAnalyze) {
+        textToAnalyze = await extractTextFromPdf(uploadedCvFile);
+      }
+      const analysis = await analyzeCvText(textToAnalyze);
       setFormData(prev => ({
         ...prev,
         name: analysis.name || prev.name,
@@ -59,9 +87,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
   };
 
   const handlePreview = () => {
-    // Create a copy of the form data for preview, excluding the File object
-    // which cannot be serialized into JSON for sessionStorage.
-    const { cvFile, ...previewData } = formData;
+    const { cvFile, ...rest } = formData;
+    const previewData = {
+      ...rest,
+      // Let the preview page know if a CV is associated, even without the File object
+      hasCvFile: !!cvFile,
+    };
     sessionStorage.setItem('profile_preview', JSON.stringify(previewData));
     const previewUrl = `${window.location.origin}${window.location.pathname}#/u/${formData.id}?preview=true`;
     window.open(previewUrl, '_blank', 'noopener,noreferrer');
@@ -69,6 +100,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
 
   const resetAIAssistant = () => {
     setCvText('');
+    setFormData(prev => ({...prev, cvFile: undefined}));
     setGenerationStatus('idle');
     setError('');
   };
@@ -84,6 +116,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFormData({ ...formData, cvFile: e.target.files[0] });
+      setCvText(''); // Clear text area to avoid confusion
     }
   };
 
@@ -155,17 +188,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
                 </h2>
                 {generationStatus === 'idle' && (
                     <>
-                        <p className="text-slate-600 mb-4">Paste your CV text below to auto-fill your profile with AI.</p>
+                        <p className="text-slate-600 mb-4">Paste your CV text or upload a PDF to auto-fill your profile with AI.</p>
                         <textarea
                             rows={8}
                             className="w-full input mb-4"
                             placeholder="Paste your CV text here..."
                             value={cvText}
-                            onChange={(e) => setCvText(e.target.value)}
+                            onChange={(e) => {
+                                setCvText(e.target.value);
+                                if (e.target.value) {
+                                    setFormData(prev => ({...prev, cvFile: undefined}));
+                                }
+                            }}
+                            disabled={!!formData.cvFile}
                         ></textarea>
+                        {!!formData.cvFile && <p className="text-sm text-center text-slate-600 mb-4">Generating from: <strong>{formData.cvFile.name}</strong></p>}
                         <button
                             onClick={handleGenerateFromCv}
                             className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900"
+                            disabled={!cvText && !formData.cvFile}
                         >
                             Generate with AI
                         </button>
@@ -180,7 +221,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
                 {generationStatus === 'success' && (
                      <div className="text-center">
                         <p className="text-lg font-semibold text-green-700 mb-2">✅ Success!</p>
-                        <p className="text-slate-600 mb-4">We've drafted your profile using your CV. Review the details on the left, then preview or save your changes.</p>
+                        <p className="text-slate-600 mb-4">We've drafted your profile. Review the details on the left, then preview or save.</p>
                         <div className="space-y-3">
                             <button
                                 onClick={handlePreview}
@@ -222,7 +263,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
         </div>
 
       </div>
-       <style>{`.input { border-radius: 0.375rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; width: 100%; } .input:focus { outline: 2px solid transparent; outline-offset: 2px; border-color: #0ea5e9; box-shadow: 0 0 0 2px #0ea5e9; }`}</style>
+       <style>{`.input { border-radius: 0.375rem; border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; width: 100%; } .input:focus { outline: 2px solid transparent; outline-offset: 2px; border-color: #0ea5e9; box-shadow: 0 0 0 2px #0ea5e9; } .input:disabled { background-color: #f1f5f9; cursor: not-allowed; }`}</style>
     </div>
   );
 };

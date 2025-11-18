@@ -14,6 +14,7 @@ export interface CandidateProfile {
   experienceSummary: string;
   skills: string[];
   cvFile?: File;
+  hasCvFile?: boolean;
   tier: Tier;
 }
 

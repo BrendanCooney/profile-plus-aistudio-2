@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { CandidateProfile, User } from '../types';
 import { Tier } from '../types';
 import { analyzeCvText } from '../services/geminiService';
 import { Spinner } from '../components/Spinner';
-import { SparklesIcon } from '../components/icons';
+import { SparklesIcon, CloudArrowUpIcon } from '../components/icons';
 
 // Mock function to simulate PDF text extraction.
 // In a real application, you would use a library like 'pdfjs-dist'.
@@ -46,6 +46,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
@@ -86,21 +88,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
     }
   };
 
+  // Helper to get the robust base URL (stripping hash) to prevent environment-specific URL errors
+  const getBaseUrl = () => {
+    return window.location.href.split('#')[0];
+  };
+
   const handlePreview = () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { cvFile, ...rest } = formData;
     const previewData = {
       ...rest,
-      // Let the preview page know if a CV is associated, even without the File object
+      // Let the preview page know if a CV is associated
       hasCvFile: !!cvFile,
     };
-    sessionStorage.setItem('profile_preview', JSON.stringify(previewData));
-    const previewUrl = `${window.location.origin}${window.location.pathname}#/u/${formData.id}?preview=true`;
+    // Use localStorage instead of sessionStorage to be robust across tabs in all browsers
+    localStorage.setItem('profileplus_preview', JSON.stringify(previewData));
+    
+    const previewUrl = `${getBaseUrl()}#/u/${formData.id}?preview=true`;
     window.open(previewUrl, '_blank', 'noopener,noreferrer');
   };
 
   const resetAIAssistant = () => {
     setCvText('');
     setFormData(prev => ({...prev, cvFile: undefined}));
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setGenerationStatus('idle');
     setError('');
   };
@@ -123,11 +134,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveProfile(formData);
-    setSuccess('Profile saved successfully!');
-    setTimeout(() => setSuccess(''), 3000);
+    setSuccess('Profile saved successfully! Open the public link to see changes.');
+    setTimeout(() => setSuccess(''), 4000);
   };
   
-  const publicProfileUrl = `${window.location.origin}${window.location.pathname}#/u/${formData.id}`;
+  const publicProfileUrl = `${getBaseUrl()}#/u/${formData.id}`;
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -202,10 +213,38 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
                             }}
                             disabled={!!formData.cvFile}
                         ></textarea>
+
+                        <div className="relative mb-4">
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                <div className="w-full border-t border-slate-300" />
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="bg-white px-2 text-slate-500">OR</span>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center mb-6">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept=".pdf"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full inline-flex items-center justify-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                            >
+                                <CloudArrowUpIcon className="-ml-1 mr-2 h-5 w-5 text-primary-500" aria-hidden="true" />
+                                Upload CV (PDF)
+                            </button>
+                        </div>
+
                         {!!formData.cvFile && <p className="text-sm text-center text-slate-600 mb-4">Generating from: <strong>{formData.cvFile.name}</strong></p>}
                         <button
                             onClick={handleGenerateFromCv}
-                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900"
+                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900 transition-colors"
                             disabled={!cvText && !formData.cvFile}
                         >
                             Generate with AI
@@ -258,7 +297,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, profile, onS
                 <div className="bg-slate-100 p-3 rounded-md text-sm break-all">
                     <a href={publicProfileUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">{publicProfileUrl}</a>
                 </div>
-                 <p className="text-xs text-slate-500 mt-2">Note: This link shows your last saved version. Use the AI Assistant to preview unsaved changes.</p>
+                 <p className="text-xs text-slate-500 mt-2">Note: Updates are saved to your browser's local storage for this demo. Opening this link in a new tab will show your saved changes.</p>
             </div>
         </div>
 

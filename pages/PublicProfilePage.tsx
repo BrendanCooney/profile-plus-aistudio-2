@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import type { CandidateProfile } from '../types';
 import { ContactForm } from '../components/ContactForm';
-import { BriefcaseIcon, MapPinIcon, DocumentArrowDownIcon } from '../components/icons';
+import { MapPinIcon, DocumentArrowDownIcon } from '../components/icons';
 
 interface PublicProfilePageProps {
   profile: CandidateProfile | null;
@@ -65,13 +65,15 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ profile, i
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    } else if (profile.hasCvFile) {
+        alert("File storage is not connected in this demo mode. In a real deployment, the PDF would download here.");
     } else {
         alert("No CV has been uploaded by the candidate.");
     }
   };
 
   const displayName = nameRevealed ? profile.name : `Candidate #${profile.id.substring(0, 4)}`;
-  const cvIsAvailable = isPreview ? profile.hasCvFile : !!profile.cvFile;
+  const cvIsAvailable = !!profile.cvFile || profile.hasCvFile;
 
   return (
     <div className="flex-grow bg-slate-100 py-8 md:py-12">

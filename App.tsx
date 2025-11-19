@@ -9,6 +9,10 @@ import { LoginModal } from './components/LoginModal';
 import type { User, CandidateProfile } from './types';
 import { Tier } from './types';
 
+// Storage Keys
+const STORAGE_KEY = 'profileplus_db';
+const PREVIEW_KEY = 'profileplus_preview';
+
 // Mock user and profile data
 const MOCK_USER: User = { id: 'user-1', email: 'test@example.com', profileId: 'dev-1234' };
 const MOCK_PROFILE: CandidateProfile = {
@@ -21,12 +25,26 @@ const MOCK_PROFILE: CandidateProfile = {
   skills: ['React', 'TypeScript', 'Node.js', 'Python', 'Docker', 'AWS', 'SQL', 'NoSQL'],
   tier: Tier.FREE,
   cvFile: undefined,
+  hasCvFile: false,
 };
 
+// Helper to load from simulated DB
+const getStoredProfiles = (): Record<string, CandidateProfile> => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch (e) {
+    return {};
+  }
+};
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [profiles, setProfiles] = useState<Record<string, CandidateProfile>>({[MOCK_PROFILE.id]: MOCK_PROFILE});
+  // Initialize state by merging Mock data with what's in LocalStorage
+  const [profiles, setProfiles] = useState<Record<string, CandidateProfile>>(() => ({
+    [MOCK_PROFILE.id]: MOCK_PROFILE,
+    ...getStoredProfiles()
+  }));
   const [currentRoute, setCurrentRoute] = useState(window.location.hash);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
@@ -53,7 +71,22 @@ const App: React.FC = () => {
   };
 
   const handleSaveProfile = useCallback((profile: CandidateProfile) => {
-    setProfiles(prev => ({ ...prev, [profile.id]: profile }));
+    setProfiles(prev => {
+      const updatedProfiles = { ...prev, [profile.id]: profile };
+      
+      // Persist to LocalStorage to simulate DB (strip File objects)
+      const storageVersion = Object.fromEntries(
+        Object.entries(updatedProfiles).map(([id, p]) => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { cvFile, ...rest } = p;
+            // If a file exists in memory or was previously marked, keep flag true
+            return [id, { ...rest, hasCvFile: !!p.cvFile || !!p.hasCvFile }];
+        })
+      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storageVersion));
+      
+      return updatedProfiles;
+    });
   }, []);
   
   const renderPage = () => {
@@ -67,7 +100,8 @@ const App: React.FC = () => {
       
       if (isPreview) {
         try {
-          const previewDataString = sessionStorage.getItem('profile_preview');
+          // Use LocalStorage for preview to ensure it works across tabs (simulated environment)
+          const previewDataString = localStorage.getItem(PREVIEW_KEY);
           if (previewDataString) {
             const previewProfile: CandidateProfile = JSON.parse(previewDataString);
             if (previewProfile.id === profileId) {
@@ -75,7 +109,7 @@ const App: React.FC = () => {
             }
           }
         } catch (e) {
-            console.error("Failed to parse preview profile from sessionStorage", e);
+            console.error("Failed to parse preview profile from localStorage", e);
         }
       }
       
